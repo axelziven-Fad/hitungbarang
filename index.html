@@ -1,73 +1,396 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Alat Hitung SPPG Panjatan 2</title>
-    <style>
-        /* Reset CSS Total - Biar Full Screen Tanpa Celah */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1D4ED8">
+  <title>AI Penghitung by Fadlan Kharisma</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { background-color: #f3f6f9; font-family: 'Inter', system-ui, sans-serif; }
+    
+    /* Mencegah seleksi teks biar ga bisa di copy sembarangan */
+    body { -webkit-user-select: none; -ms-user-select: none; user-select: none; }
+    
+    .btn-loading-state { background: linear-gradient(-45deg, #2563eb, #7c3aed, #2563eb, #0ea5e9); background-size: 300% 300%; animation: gradientPulse 2s ease infinite; }
+    @keyframes gradientPulse { 0% {background-position: 0% 50%} 50% {background-position: 100% 50%} 100% {background-position: 0% 50%} }
+    .typing-dots::after { content: '.'; animation: dots 1.5s steps(4, end) infinite; }
+    @keyframes dots { 0%, 20% { color: transparent; text-shadow: .25em 0 0 transparent, .5em 0 0 transparent; } 40% { color: white; text-shadow: .25em 0 0 transparent, .5em 0 0 transparent; } 60% { text-shadow: .25em 0 0 white, .5em 0 0 transparent; } 80%, 100% { text-shadow: .25em 0 0 white, .5em 0 0 white; } }
 
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden; /* Mencegah scroll pada body utama */
-            background-color: #ffffff;
-        }
-
-        /* Container Iframe */
-        .iframe-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        /* Iframe Style */
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        /* Loading Screen Sederhana */
-        #loader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 0; /* Di belakang iframe */
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: #555;
-            font-size: 14px;
-        }
-    </style>
+    #genZModal { transition: opacity 0.3s ease, visibility 0.3s; }
+    #genZModal.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .genz-modal-content { transform: scale(0.95); transition: transform 0.3s ease-out; }
+    #genZModal:not(.hidden) .genz-modal-content { transform: scale(1); }
+  </style>
 </head>
-<body>
+<body class="flex flex-col min-h-screen">
 
-    <div id="loader">by Fadlan Kharisma</div>
+  <header class="bg-blue-700 text-white p-4 shadow-lg sticky top-0 z-40 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="bg-white/10 p-2 rounded-xl"><i data-lucide="scan-face" class="w-7 h-7"></i></div>
+      <h1 class="font-black text-2xl tracking-tighter">AI Penghitung <span class="text-xs font-normal opacity-70">by Fadlan Kharisma</span></h1>
+    </div>
+    <div id="gpsStatus" class="flex items-center gap-1.5 text-xs bg-red-500/80 px-3 py-1.5 rounded-full font-medium">
+      <i data-lucide="map-pin-off" class="w-3.5 h-3.5"></i> Lock GPS...
+    </div>
+  </header>
 
-    <div class="iframe-container">
-        <iframe 
-            src="https://script.google.com/macros/s/AKfycbyjoq4QfjIdpr53rbc7VsycaNBHQyG-GdMu6T_GzCtHeH8h0_GKQAOcHTIXpWRfXh4pAQ/exec" 
-            allow="geolocation *; microphone *; camera *; clipboard-write *" 
-            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
-            title="App Frame">
-        </iframe>
+  <main class="flex-grow p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="md:col-span-2 space-y-6">
+      
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="bg-blue-100 text-blue-700 p-4 rounded-2xl"><i data-lucide="zap-fast" class="w-6 h-6"></i></div>
+          <div>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">Hitungan Hari Ini</p>
+            <p class="text-3xl font-black text-gray-950" id="remainingText">-</p>
+          </div>
+        </div>
+        <div id="limitStatusBadage" class="text-xs px-4 py-2 rounded-full bg-gray-100 text-gray-800 font-bold flex items-center gap-1.5"><i data-lucide="loader" class="w-3.5 h-3.5"></i> Cek Server</div>
+      </div>
+
+      <div class="bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100">
+        <label class="block text-sm font-semibold text-gray-800 mb-1.5 flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-blue-600"></i> Nama Barang</label>
+        <input type="text" id="itemName" oninput="saveTextData()" placeholder="E.g. Palet Kayu" class="w-full border border-gray-200 rounded-xl p-4 mb-5 focus:border-blue-500 outline-none transition duration-150">
+
+        <div class="flex justify-between items-end mb-1.5">
+            <label class="block text-sm font-semibold text-gray-800 flex items-center gap-2"><i data-lucide="camera" class="w-4 h-4 text-blue-600"></i> Upload Foto <span class="text-xs text-gray-400 font-normal">(Max 7)</span></label>
+            <button onclick="confirmClearAll()" id="btnClear" class="hidden text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition border border-red-100"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus Semua</button>
+        </div>
+        
+        <div class="flex items-center justify-center w-full mb-3">
+            <label for="imageInput" class="flex flex-col items-center justify-center w-full h-44 border-2 border-blue-200 border-dashed rounded-3xl cursor-pointer bg-blue-50 hover:bg-blue-100 transition duration-150">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4 space-y-3">
+                    <i data-lucide="upload-cloud" class="w-12 h-12 text-blue-500"></i>
+                    <p class="text-sm text-gray-700 font-semibold" id="fileCount">Tap buat foto / galeri</p>
+                    <p class="text-xs text-gray-400">Min. 1 foto operasional SPPG.</p>
+                </div>
+                <input id="imageInput" type="file" class="hidden" accept="image/jpeg,image/png" multiple capture="environment" onchange="handleFileChange(this)" />
+            </label>
+        </div>
+        
+        <div id="imagePreviews" class="grid grid-cols-4 md:grid-cols-7 gap-3 mb-6"></div>
+
+        <button id="btnHitung" onclick="confirmStartCounting()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4.5 rounded-2xl flex justify-center items-center gap-3 transition duration-150 shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 disabled:pointer-events-none disabled:shadow-none">
+          <i data-lucide="sparkles" id="btnIcon" class="w-5 h-5"></i> <span id="btnText">Hitung Kumulatif</span>
+        </button>
+      </div>
+
+      <div id="resultBox" class="hidden bg-green-600 rounded-3xl p-10 text-center text-white shadow-xl transform transition-all duration-300 ease-out scale-95 opacity-0">
+        <div class="flex justify-center mb-3 text-green-200"><i data-lucide="check-circle" class="w-10 h-10"></i></div>
+        <p class="text-xs text-green-100 font-bold tracking-widest uppercase mb-1">Total Hasil AI</p>
+        <h2 class="text-8xl font-black tracking-tighter" id="resultNumber">0</h2>
+        <p class="text-sm mt-3.5 opacity-90" id="resultItemName">Barang tidak diketahui</p>
+      </div>
     </div>
 
+    <div class="bg-white rounded-3xl shadow-sm p-6 border border-gray-100 space-y-5">
+      <div class="flex justify-between items-center mb-1">
+        <h3 class="font-bold text-xl text-gray-950 flex items-center gap-3"><i data-lucide="history" class="w-5 h-5 text-gray-500"></i> Log Histori</h3>
+        <button onclick="updateUsageAndHistory()" class="text-blue-500 hover:bg-blue-50 p-2 rounded-lg transition"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+      </div>
+      <ul id="historyList" class="divide-y divide-gray-100 text-sm space-y-2">
+        <li class="py-5 text-center text-gray-400">Memuat log...</li>
+      </ul>
+    </div>
+  </main>
+
+  <div id="genZModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="genz-modal-content bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl space-y-6 text-center">
+      <div id="modalIconContainer" class="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-gray-100 text-gray-500">
+        <i id="modalIcon" data-lucide="info" class="w-8 h-8"></i>
+      </div>
+      <div class="space-y-1.5">
+        <h3 id="modalTitle" class="font-extrabold text-2xl text-gray-950 tracking-tight">Perhatian</h3>
+        <p id="modalMessage" class="text-gray-600 text-sm">Pesan akan muncul disini...</p>
+      </div>
+      <div id="modalButtons" class="flex gap-3 w-full"></div>
+    </div>
+  </div>
+
+  <script>
+    // ================= SCRIPT ANTI-INSPECT (DETERRENT) =================
+    // Blokir klik kanan
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    // Blokir Shortcut Keyboard Developer Tools
+    document.onkeydown = function(e) {
+      if(e.keyCode == 123) return false; // F12
+      if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Ctrl+Shift+I
+      if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Ctrl+Shift+C
+      if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Ctrl+Shift+J
+      if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Ctrl+U (View Source)
+    };
+    // ====================================================================
+
+    // PASTE URL API GOOGLE SCRIPT LO DISINI
+    const API_URL = "https://script.google.com/macros/s/AKfycbyjoq4QfjIdpr53rbc7VsycaNBHQyG-GdMu6T_GzCtHeH8h0_GKQAOcHTIXpWRfXh4pAQ/exec"; 
     
+    lucide.createIcons();
+    let userLat = null, userLng = null, imagesBase64 = [];
+    let confirmActionCallback = null; 
+    const TARGET_LAT = -7.907354, TARGET_LNG = 110.169152, MAX_DISTANCE_M = 200, MAX_IMAGES = 7;
+    let loadingInterval; 
+
+    // Helper panggil API Web App
+    async function callAPI(payloadData) {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify(payloadData),
+                // Gunakan text/plain agar tidak trigger preflight CORS di Vercel/GAS
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+            });
+            return await response.json();
+        } catch (e) {
+            throw new Error("Koneksi ke server SPPG gagal. Cek sinyal internet lo.");
+        }
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userLat = pos.coords.latitude; userLng = pos.coords.longitude;
+        let distance = getDistance(TARGET_LAT, TARGET_LNG, userLat, userLng);
+        const statusEl = document.getElementById('gpsStatus');
+        if(distance <= MAX_DISTANCE_M) {
+          statusEl.className = "flex items-center gap-1.5 text-xs bg-green-500/80 px-3 py-1.5 rounded-full font-medium";
+          statusEl.innerHTML = `<i data-lucide="map-pin" class="w-3.5 h-3.5"></i> GPS OK`;
+        } else {
+          statusEl.className = "flex items-center gap-1.5 text-xs bg-red-600 px-3 py-1.5 rounded-full font-black animate-pulse";
+          statusEl.innerHTML = `<i data-lucide="map-pin-off" class="w-3.5 h-3.5"></i> DILUAR AREA`;
+          document.getElementById('btnHitung').disabled = true;
+          document.getElementById('btnText').innerText = `Jauh (${Math.round(distance)}m)`;
+        }
+        lucide.createIcons();
+      },
+      (err) => showModal('GPS Mati', 'Woy, GPS nyalain & izinin lokasinya!', 'error'),
+      { enableHighAccuracy: true }
+    );
+
+    window.onload = () => {
+        loadDataFromLocal();
+        updateUsageAndHistory();
+    };
+
+    function saveTextData() { localStorage.setItem('sppg_itemName', document.getElementById('itemName').value); }
+
+    function handleFileChange(input) {
+      let currentTotal = imagesBase64.length + input.files.length;
+      if (currentTotal > MAX_IMAGES) {
+        showModal('Kefotoan', `Gabungan foto maks ${MAX_IMAGES} aja, Bro! Hapus yang lama dulu.`, 'warning');
+        input.value = ""; return;
+      }
+      processImages(input.files);
+      input.value = ""; 
+    }
+
+    function processImages(files) {
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800; 
+            canvas.width = MAX_WIDTH; canvas.height = img.height * (MAX_WIDTH / img.width);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            let base64 = canvas.toDataURL('image/jpeg', 0.7); 
+            imagesBase64.push(base64);
+            renderPreviews();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderPreviews() {
+      const previewsEl = document.getElementById('imagePreviews');
+      const btnClear = document.getElementById('btnClear');
+      const fileCount = document.getElementById('fileCount');
+      
+      previewsEl.innerHTML = '';
+      
+      if(imagesBase64.length > 0) {
+          btnClear.classList.remove('hidden');
+          fileCount.innerText = `${imagesBase64.length} Foto Siap Proses`;
+      } else {
+          btnClear.classList.add('hidden');
+          fileCount.innerText = "Tap buat foto / galeri";
+      }
+
+      imagesBase64.forEach((base64, index) => {
+        previewsEl.innerHTML += `
+          <div class="relative aspect-square rounded-2xl bg-gray-100 border border-gray-200 shadow-sm group" style="background-image:url(${base64});background-size:cover;background-position:center;">
+             <button onclick="removeImage(${index})" class="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md opacity-90 hover:opacity-100 transition"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+      saveImagesToLocal();
+    }
+
+    function removeImage(index) { imagesBase64.splice(index, 1); renderPreviews(); }
+    
+    function confirmClearAll() {
+        showModal('Yakin Hapus Semua?', 'Foto yang udah lo masukin bakal hilang dan lo harus foto ulang. Gas?', 'confirm', true, clearAllImages, 'Yakin, Hapus', 'bg-red-600 hover:bg-red-700');
+    }
+
+    function clearAllImages() { imagesBase64 = []; renderPreviews(); localStorage.removeItem('sppg_imagesBase64'); }
+
+    function saveImagesToLocal() {
+        try { localStorage.setItem('sppg_imagesBase64', JSON.stringify(imagesBase64)); } 
+        catch (e) { showModal('Storage Penuh', 'Kapasitas browser penuh. Foto mungkin hilang kalau di-refresh.', 'warning'); }
+    }
+
+    function loadDataFromLocal() {
+        let savedName = localStorage.getItem('sppg_itemName');
+        if (savedName) document.getElementById('itemName').value = savedName;
+        let savedImages = localStorage.getItem('sppg_imagesBase64');
+        if (savedImages) { imagesBase64 = JSON.parse(savedImages); renderPreviews(); }
+    }
+
+    function confirmStartCounting() {
+      let itemName = document.getElementById('itemName').value;
+      if(!itemName) return showModal('Item Kosong', 'Nama barang diisi dulu, Bro!', 'warning');
+      if(imagesBase64.length === 0) return showModal('Foto Kosong', 'Masukin minimal 1 foto operasional, Bro!', 'warning');
+      if(!userLat) return showModal('Nunggu GPS', 'Tunggu GPS kelock dulu!', 'info');
+
+      showModal('Fotonya Udah Bener?', `Pastiin foto "${itemName}" lo tajam dan jelas biar AI Gemini bisa ngitung akurat. Udah yakin?`, 'confirm', true, executeCounting, 'Gas Hitung!', 'bg-blue-600 hover:bg-blue-700');
+    }
+
+    async function executeCounting() {
+      let itemName = document.getElementById('itemName').value;
+      setLoadingState(true);
+      document.getElementById('resultBox').classList.add('hidden');
+
+      try {
+        let response = await callAPI({
+            action: 'processAI',
+            imagesBase64: imagesBase64,
+            itemName: itemName,
+            userLat: userLat,
+            userLng: userLng
+        });
+
+        setLoadingState(false);
+        if(response.success) {
+            showResult(response.count, itemName);
+            updateUsageAndHistory();
+        } else {
+            showModal('Gagal', response.message, 'error');
+        }
+      } catch (err) {
+        setLoadingState(false); 
+        showModal('Server Error', err.message, 'error'); 
+      }
+    }
+
+    function setLoadingState(isLoading) {
+      const btn = document.getElementById('btnHitung');
+      const text = document.getElementById('btnText');
+      const icon = document.getElementById('btnIcon');
+      const funkyTexts = ["AI lagi overthinking", "Mata AI lagi melotot", "Ngitung satu-satu, chill", "Koneksi ke server SPPG"];
+      let textIdx = 0;
+
+      btn.disabled = isLoading;
+      
+      if(isLoading) {
+        btn.classList.add('btn-loading-state'); btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        icon.classList.add('hidden');
+        text.innerHTML = funkyTexts[textIdx] + `<span class="typing-dots"></span>`;
+        loadingInterval = setInterval(() => {
+            textIdx = (textIdx + 1) % funkyTexts.length;
+            text.innerHTML = funkyTexts[textIdx] + `<span class="typing-dots"></span>`;
+        }, 2000);
+      } else {
+        clearInterval(loadingInterval);
+        btn.classList.remove('btn-loading-state'); btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        icon.classList.remove('hidden'); text.innerHTML = `Hitung Kumulatif`;
+      }
+    }
+
+    function showResult(count, item) {
+      const box = document.getElementById('resultBox');
+      document.getElementById('resultNumber').innerText = count;
+      document.getElementById('resultItemName').innerText = item;
+      box.classList.remove('hidden');
+      setTimeout(() => box.classList.remove('scale-95', 'opacity-0'), 10);
+    }
+
+    async function updateUsageAndHistory() {
+      try {
+        let response = await callAPI({ action: 'getInitData' });
+        if(response.success) {
+            // Update Limit
+            let stats = response.stats;
+            document.getElementById('remainingText').innerText = `${stats.remaining} / ${stats.limit}`;
+            let badge = document.getElementById('limitStatusBadage');
+            if(stats.remaining <= 2) { badge.className="text-xs px-4 py-2 rounded-full bg-red-100 text-red-800 font-bold flex items-center gap-1.5"; badge.innerHTML=`<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Kritis`; }
+            else { badge.className="text-xs px-4 py-2 rounded-full bg-green-100 text-green-800 font-bold flex items-center gap-1.5"; badge.innerHTML=`<i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Aman`; }
+            
+            // Update History
+            let data = response.history;
+            let html = '';
+            if(data.length === 0) html = '<li class="py-5 text-center text-gray-400">Belum ada data</li>';
+            else {
+                data.forEach(item => {
+                    let statusBadge = item.status === 'Success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                    html += `<li class="py-4.5 flex justify-between items-center gap-3 border-b border-gray-50 last:border-0">
+                        <div>
+                        <p class="font-bold text-gray-800 tracking-tight">${item.item}</p>
+                        <p class="text-xs text-gray-400 flex items-center gap-1">${item.time} <span class="${statusBadge} px-2 py-0.5 rounded text-[10px] ml-1.5 font-bold">${item.status==='Success'?'OK':'FAIL'}</span></p>
+                        </div>
+                        <div class="text-right flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl shadow-sm border border-gray-100">
+                        <p class="font-black text-3xl text-gray-950">${item.count}</p>
+                        </div>
+                    </li>`;
+                });
+            }
+            document.getElementById('historyList').innerHTML = html;
+            lucide.createIcons();
+        }
+      } catch(e) {
+          console.error("Gagal load history");
+      }
+    }
+
+    function showModal(title, message, type = 'info', isConfirm = false, onConfirm = null, btnConfirmText = 'Yakin', btnConfirmStyle = 'bg-blue-600 hover:bg-blue-700') {
+      const modal = document.getElementById('genZModal');
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalMessage').innerText = message;
+      const iconContainerEl = document.getElementById('modalIconContainer');
+      const iconEl = document.getElementById('modalIcon');
+      const btnContainer = document.getElementById('modalButtons');
+      
+      iconContainerEl.className = "mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-gray-100 text-gray-500";
+      let iconName = 'info';
+      if(type === 'error') { iconContainerEl.classList.add("bg-red-100", "text-red-700"); iconName = 'alert-triangle'; }
+      if(type === 'warning') { iconContainerEl.classList.add("bg-amber-100", "text-amber-700"); iconName = 'shield-alert'; }
+      if(type === 'confirm') { iconContainerEl.classList.add("bg-blue-100", "text-blue-700"); iconName = 'help-circle'; }
+
+      iconEl.setAttribute('data-lucide', iconName);
+
+      if (isConfirm) {
+          confirmActionCallback = onConfirm;
+          btnContainer.innerHTML = `
+              <button onclick="closeModal()" class="w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 rounded-xl transition">Batal</button>
+              <button onclick="executeConfirm()" class="w-1/2 ${btnConfirmStyle} text-white font-black py-3.5 rounded-xl transition shadow-md">${btnConfirmText}</button>
+          `;
+      } else {
+          btnContainer.innerHTML = `<button onclick="closeModal()" class="w-full bg-gray-900 hover:bg-gray-700 text-white font-black py-3.5 rounded-xl transition shadow-md">Mengerti, Bro!</button>`;
+      }
+      modal.classList.remove('hidden'); lucide.createIcons();
+    }
+
+    function executeConfirm() { if(confirmActionCallback) confirmActionCallback(); closeModal(); }
+    function closeModal() { document.getElementById('genZModal').classList.add('hidden'); confirmActionCallback = null; }
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      var R = 6371; var dLat = (lat2-lat1) * (Math.PI/180); var dLon = (lon2-lon1) * (Math.PI/180); 
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) * 1000;
+    }
+  </script>
 </body>
 </html>
